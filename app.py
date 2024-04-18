@@ -1,33 +1,35 @@
-### Building Url Dynamically 
-####Variable Rules And URL Building
+import cv2
+from flask import Flask, render_template, Response
 
-from flask import Flask,redirect,url_for
-import pandas
-app=Flask(__name__)
+app = Flask(__name__)
+
+camera = cv2.VideoCapture(0)  # Open the default camera
 
 @app.route('/')
-def welcome():
-    return 'Welcome to my Youtube Channel'
+def index():
+    """Video streaming home page."""
+    return render_template('index.html')
 
-@app.route('/success/<int:score>')
-def success(score):
-    return "<html><body><h1>The Reult is passed</h1></body></html>"
+def gen():
+    """Video streaming generator function."""
+    while True:
+        ret, frame = camera.read()  # Read frame from the camera
+        if not ret:
+            break
+        # Resize the frame
+        frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
+        # Encode the frame as JPEG
+        ret, buffer = cv2.imencode('.jpg', frame)
+        if not ret:
+            continue
+        # Convert the frame to bytes
+        frame_bytes = buffer.tobytes()
+        yield (b'--frame\r\n'b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
+@app.route('/video_feed')
+def video_feed():
+    """Video streaming route. Put this in the src attribute of an img tag."""
+    return Response(gen(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-@app.route('/fail/<int:score>')
-def fail(score):
-    return "The Person has failed and the marks is "+ str(score)
-
-### Result checker
-@app.route('/results/<int:marks>')
-def results(marks):
-    result=""
-    if marks<50:
-        result='fail'
-    else:
-        result='success'
-    return redirect(url_for(result,score=marks))
-
-
-if __name__=='__main__':
+if __name__ == "__main__":
     app.run(debug=True)
